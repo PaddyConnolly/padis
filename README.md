@@ -1,6 +1,6 @@
-# 📦 Redis Clone
+# 📦 padis
 
-Goal is a simple Redis clone, to explore system design and multi-threaing in Rust with the `tokio` crate
+Redis Clone written in Rust: Building a simple Redis clone, to explore system design and multi-threading in Rust with the `tokio` crate
 
 ## Status
 
