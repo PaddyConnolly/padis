@@ -4,7 +4,7 @@ use bytes::{Buf, Bytes};
 use std::{io::Cursor, string::FromUtf8Error};
 
 // https://redis.io/docs/latest/develop/reference/protocol-spec/#resp-protocol-description
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Frame {
     SimpleString(String),
     SimpleError(String), // Not a code error, Redis responding with an Error
@@ -20,6 +20,7 @@ pub enum ParseError {
     InvalidInteger,
     InvalidString,
     InvalidEnd,
+    UnknownType,
     Other(crate::Error),
 }
 
@@ -50,7 +51,7 @@ impl Frame {
             }
             b':' => {
                 // Integer
-                let line = get_line(buf)?.to_vec();
+                let line = get_line(buf)?;
 
                 let integer = get_integer(&line)?;
 
@@ -60,24 +61,47 @@ impl Frame {
                 // BulkString
                 // If not null
                 if peek_u8(buf)? != b'-' {
-                    let line = get_line(buf)?.to_vec();
-                    let len = (get_integer(&line)? + 2) as usize;
+                    let line = get_line(buf)?;
+                    let len = get_integer(&line)? as usize;
 
-                    let data = Bytes::copy_from_slice(&buf.chunk()[..len]);
+                    if buf.remaining() < len + 2 {
+                        return Err(ParseError::Incomplete);
+                    }
 
-                    buf.advance(len);
+                    let data = {
+                        let chunk = buf.chunk();
+
+                        let (data, rest) = chunk.split_at(len);
+
+                        if data.iter().any(|&b| b == b'\r' || b == b'\n') {
+                            return Err(ParseError::InvalidString);
+                        }
+
+                        if rest.len() < 2 || rest[0] != b'\r' || rest[1] != b'\n' {
+                            return Err(ParseError::Incomplete);
+                        }
+
+                        Bytes::copy_from_slice(data)
+                    };
+
+                    buf.advance(len + 2);
 
                     Ok(Frame::BulkString(data))
 
                 // If null
                 } else {
+                    let line = get_line(buf)?;
+
+                    if line != b"-1" {
+                        return Err(ParseError::Other("Invalid Null".into()));
+                    }
                     Ok(Frame::Null)
                 }
             }
             b'*' => {
                 // Array
-                let line = get_line(buf)?.to_vec();
-                let len = (get_integer(&line)? + 2) as usize;
+                let line = get_line(buf)?;
+                let len = (get_integer(&line)?) as usize;
                 let mut out = Vec::with_capacity(len);
 
                 for _ in 0..len {
@@ -86,10 +110,7 @@ impl Frame {
 
                 Ok(Frame::Array(out))
             }
-            _ => {
-                // If char not in RESP2, panic with unimplemented
-                unimplemented!()
-            }
+            _ => Err(ParseError::UnknownType),
         }
     }
 }
@@ -128,23 +149,12 @@ fn get_line<'a>(buf: &mut Cursor<&'a [u8]>) -> Result<&'a [u8], ParseError> {
     Err(ParseError::Incomplete)
 }
 
-// Get an integer from a line
-fn get_integer(line: &[u8]) -> Result<i64, ParseError> {
-    let nums = strip_line(line)?;
-
+// Get an integer from buffer
+fn get_integer(nums: &[u8]) -> Result<i64, ParseError> {
     match atoi::<i64>(nums) {
         Some(n) => Ok(n),
         _ => Err(ParseError::InvalidInteger),
     }
-}
-
-// Strip CRLF from a line
-fn strip_line(line: &[u8]) -> Result<&[u8], ParseError> {
-    if line.len() < 2 || &line[line.len() - 2..] != b"\r\n" {
-        return Err(ParseError::InvalidEnd);
-    }
-
-    Ok(&line[..line.len() - 2])
 }
 
 //  Implement the trait From, to enable conversions from &str to ParseError
@@ -158,18 +168,5 @@ impl From<&str> for ParseError {
 impl From<FromUtf8Error> for ParseError {
     fn from(_src: FromUtf8Error) -> ParseError {
         "Parse Error: Invalid frame format".into()
-    }
-}
-
-impl PartialEq for Frame {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Frame::SimpleString(a), Frame::SimpleString(b)) => a == b,
-            (Frame::SimpleError(a), Frame::SimpleError(b)) => a == b,
-            (Frame::Integer(a), Frame::Integer(b)) => a == b,
-            (Frame::BulkString(a), Frame::BulkString(b)) => a == b,
-            (Frame::Array(a), Frame::Array(b)) => a == b,
-            _ => false,
-        }
     }
 }

@@ -97,7 +97,7 @@ fn incomplete_array_partial_element() {
 fn invalid_frame_type() {
     let mut cursor = Cursor::new(&b"^invalid\r\n"[..]);
     let result = Frame::parse(&mut cursor);
-    assert!(matches!(result, Err(ParseError::Incomplete)));
+    assert!(matches!(result, Err(ParseError::UnknownType)));
 }
 
 #[test]
