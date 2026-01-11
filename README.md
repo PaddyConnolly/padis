@@ -4,7 +4,7 @@ A Redis Clone written in Rust to explore system design and multi-threading.
 
 ## Features
 
-- RESP protocol parsing
+- RESP2 protocol parsing
 - TCP connection handling with async I/O
 - Commands: `PING`, `ECHO`, `GET`, `SET` (with expiry)
 - Thread-safe in-memory key-value store
@@ -63,7 +63,7 @@ Built this to learn Rust fundamentals:
 - Concurrency with `Arc<Mutex<T>>`
 - The `bytes` crate for buffer management
 
-See my [writeups](https://github.com/PaddyConnolly/writing.git) for detailed notes.
+See my [writeups](https://github.com/PaddyConnolly/writing/tree/main/rust) for detailed notes.
 
 ## Acknowledgments
 
