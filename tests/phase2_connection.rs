@@ -1,4 +1,3 @@
-// tests/phase2_connection.rs
 use bytes::Bytes;
 use padis::{Connection, Frame};
 

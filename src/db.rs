@@ -13,7 +13,7 @@ struct Shared {
 }
 
 struct State {
-    entries: HashMap<String, Entry>,
+    entries: HashMap<Bytes, Entry>,
 }
 
 struct Entry {
@@ -32,7 +32,7 @@ impl Db {
         }
     }
 
-    pub fn get(&self, key: &str) -> Option<Bytes> {
+    pub fn get(&self, key: &Bytes) -> Option<Bytes> {
         let mut state = self.shared.state.lock().unwrap();
 
         let expired = state
@@ -49,16 +49,16 @@ impl Db {
         state.entries.get(key).map(|e| e.value.clone())
     }
 
-    pub fn set<K: Into<String>>(&self, key: K, value: Bytes, expiry: Option<Duration>) {
+    pub fn set(&self, key: &Bytes, value: Bytes, expiry: Option<Duration>) {
         let mut hm = match self.shared.state.lock() {
             Ok(guard) => guard,
             Err(poisoned) => poisoned.into_inner(),
         };
         let expires_at = expiry.map(|d| Instant::now() + d);
-        hm.entries.insert(key.into(), Entry { value, expires_at });
+        hm.entries.insert(key.clone(), Entry { value, expires_at });
     }
 
-    pub fn del(&self, key: &str) -> bool {
+    pub fn del(&self, key: &Bytes) -> bool {
         let mut hm = match self.shared.state.lock() {
             Ok(guard) => guard,
             Err(poisoned) => poisoned.into_inner(),
@@ -66,7 +66,7 @@ impl Db {
         hm.entries.remove(key).is_some()
     }
 
-    pub fn keys(&self) -> Vec<String> {
+    pub fn keys(&self) -> Vec<Bytes> {
         let mut hm = match self.shared.state.lock() {
             Ok(guard) => guard,
             Err(poisoned) => poisoned.into_inner(),
