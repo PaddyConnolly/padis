@@ -56,7 +56,7 @@ impl Frame {
                 // Integer
                 let line = get_line(buf)?;
 
-                let integer = get_integer(&line)?;
+                let integer = get_integer(line)?;
 
                 Ok(Frame::Integer(integer))
             }
@@ -65,7 +65,7 @@ impl Frame {
                 // If not null
                 if peek_u8(buf)? != b'-' {
                     let line = get_line(buf)?;
-                    let len = get_integer(&line)? as usize;
+                    let len = get_integer(line)? as usize;
 
                     if buf.remaining() < len + 2 {
                         return Err(ParseError::Incomplete);
@@ -102,7 +102,7 @@ impl Frame {
             b'*' => {
                 // Array
                 let line = get_line(buf)?;
-                let len = get_integer(&line)? as usize;
+                let len = get_integer(line)? as usize;
                 let mut out = Vec::with_capacity(len);
 
                 for _ in 0..len {

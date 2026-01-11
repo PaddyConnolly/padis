@@ -49,9 +49,9 @@ fn execute(cmd: Command, db: &Db) -> Frame {
     match cmd {
         Command::Ping { msg } => match msg {
             None => Frame::SimpleString("PONG".into()),
-            Some(m) => Frame::BulkString(m.into()),
+            Some(m) => Frame::BulkString(m),
         },
-        Command::Echo { msg } => Frame::BulkString(msg.into()),
+        Command::Echo { msg } => Frame::BulkString(msg),
         Command::Get { key } => match db.get(&key) {
             Some(v) => Frame::BulkString(v),
             _ => Frame::Null,

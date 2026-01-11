@@ -21,6 +21,12 @@ struct Entry {
     expires_at: Option<Instant>,
 }
 
+impl Default for Db {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Db {
     pub fn new() -> Db {
         Db {
@@ -74,8 +80,8 @@ impl Db {
         hm.entries.retain(|_, entry| {
             entry
                 .expires_at
-                .map_or(true, |expiry| Instant::now() <= expiry)
+                .is_none_or(|expiry| Instant::now() <= expiry)
         });
-        return hm.entries.keys().cloned().collect();
+        hm.entries.keys().cloned().collect()
     }
 }
