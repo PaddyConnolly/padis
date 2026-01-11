@@ -14,22 +14,25 @@ pub enum Frame {
     Array(Vec<Frame>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ParseError {
+    #[error("Incomplete Frame")]
     Incomplete,
+    #[error("Invalid Integer")]
     InvalidInteger,
+    #[error("Invalid String")]
     InvalidString,
+    #[error("Invalid Frame Ending")]
     InvalidEnd,
+    #[error("Unknown Frame Type")]
     UnknownType,
-    Other(crate::Error),
+    #[error("Invalid Null")]
+    InvalidNull,
+    #[error("Invalid UTF-8 Conversion")]
+    Utf8(#[from] FromUtf8Error),
 }
 
 impl Frame {
-    // Create an empty array
-    pub fn array() -> Frame {
-        Frame::Array(vec![])
-    }
-
     // Parse RESP2 data from a buffer
     pub fn parse(buf: &mut Cursor<&[u8]>) -> Result<Frame, ParseError> {
         match get_u8(buf)? {
@@ -68,21 +71,19 @@ impl Frame {
                         return Err(ParseError::Incomplete);
                     }
 
-                    let data = {
-                        let chunk = buf.chunk();
+                    let chunk = buf.chunk();
 
-                        let (data, rest) = chunk.split_at(len);
+                    let (data, rest) = chunk.split_at(len);
 
-                        if data.iter().any(|&b| b == b'\r' || b == b'\n') {
-                            return Err(ParseError::InvalidString);
-                        }
+                    if data.iter().any(|&b| b == b'\r' || b == b'\n') {
+                        return Err(ParseError::InvalidString);
+                    }
 
-                        if rest.len() < 2 || rest[0] != b'\r' || rest[1] != b'\n' {
-                            return Err(ParseError::Incomplete);
-                        }
+                    if rest.len() < 2 || rest[0] != b'\r' || rest[1] != b'\n' {
+                        return Err(ParseError::Incomplete);
+                    }
 
-                        Bytes::copy_from_slice(data)
-                    };
+                    let data = Bytes::copy_from_slice(data);
 
                     buf.advance(len + 2);
 
@@ -93,7 +94,7 @@ impl Frame {
                     let line = get_line(buf)?;
 
                     if line != b"-1" {
-                        return Err(ParseError::Other("Invalid Null".into()));
+                        return Err(ParseError::InvalidNull);
                     }
                     Ok(Frame::Null)
                 }
@@ -101,7 +102,7 @@ impl Frame {
             b'*' => {
                 // Array
                 let line = get_line(buf)?;
-                let len = (get_integer(&line)?) as usize;
+                let len = get_integer(&line)? as usize;
                 let mut out = Vec::with_capacity(len);
 
                 for _ in 0..len {
@@ -137,16 +138,13 @@ fn peek_u8(buf: &mut Cursor<&[u8]>) -> Result<u8, ParseError> {
 fn get_line<'a>(buf: &mut Cursor<&'a [u8]>) -> Result<&'a [u8], ParseError> {
     let start = buf.position() as usize;
 
-    let end = buf.get_ref().len() - 1;
+    let offset = buf.get_ref()[start..]
+        .windows(2)
+        .position(|w| w == b"\r\n")
+        .ok_or(ParseError::Incomplete)?;
 
-    for i in start..end {
-        if buf.get_ref()[i] == b'\r' && buf.get_ref()[i + 1] == b'\n' {
-            buf.set_position((i + 2) as u64);
-            return Ok(&buf.get_ref()[start..i]);
-        }
-    }
-
-    Err(ParseError::Incomplete)
+    buf.set_position((start + offset + 2) as u64);
+    Ok(&buf.get_ref()[start..start + offset])
 }
 
 // Get an integer from buffer
@@ -154,19 +152,5 @@ fn get_integer(nums: &[u8]) -> Result<i64, ParseError> {
     match atoi::<i64>(nums) {
         Some(n) => Ok(n),
         _ => Err(ParseError::InvalidInteger),
-    }
-}
-
-//  Implement the trait From, to enable conversions from &str to ParseError
-impl From<&str> for ParseError {
-    fn from(src: &str) -> ParseError {
-        ParseError::Other(src.into())
-    }
-}
-
-//  Implement the trait From, to enable conversions from FromUtf8Error to ParseError
-impl From<FromUtf8Error> for ParseError {
-    fn from(_src: FromUtf8Error) -> ParseError {
-        "Parse Error: Invalid frame format".into()
     }
 }
