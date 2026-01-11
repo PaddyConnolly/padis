@@ -5,7 +5,11 @@ use std::time::Duration;
 
 // Helper to build a command frame
 fn cmd_frame(args: &[&str]) -> Frame {
-    Frame::Array(args.iter().map(|s| Frame::Bulk(Bytes::from(*s))).collect())
+    Frame::Array(
+        args.iter()
+            .map(|s| Frame::BulkString(Bytes::copy_from_slice(s.as_bytes())))
+            .collect(),
+    )
 }
 
 // === PING ===
@@ -164,7 +168,7 @@ fn parse_unknown_command() {
 
 #[test]
 fn parse_non_array_frame_fails() {
-    let frame = Frame::Simple("PING".to_string());
+    let frame = Frame::SimpleString("PING".to_string());
     let result = Command::from_frame(frame);
     assert!(result.is_err());
 }
@@ -182,4 +186,3 @@ fn parse_array_with_non_bulk_command_fails() {
     let result = Command::from_frame(frame);
     assert!(result.is_err());
 }
-
