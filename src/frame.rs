@@ -1,6 +1,6 @@
 // Implementation of a 'Frame' from the Redis serialisation protocol (RESP)
 use atoi::atoi;
-use bytes::{Buf, Bytes};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use std::{io::Cursor, string::FromUtf8Error};
 
 // https://redis.io/docs/latest/develop/reference/protocol-spec/#resp-protocol-description
@@ -112,6 +112,34 @@ impl Frame {
                 Ok(Frame::Array(out))
             }
             _ => Err(ParseError::UnknownType),
+        }
+    }
+
+    pub fn to_bytes(&self) -> Bytes {
+        match self {
+            Frame::SimpleString(s) => Bytes::from(format!("+{}\r\n", s)),
+            Frame::SimpleError(s) => Bytes::from(format!("-{}\r\n", s)),
+            Frame::Integer(n) => Bytes::from(format!(":{}\r\n", n)),
+            Frame::BulkString(s) => {
+                let len = s.len();
+                let header = format!("${}\r\n", len);
+                let mut out = BytesMut::new();
+                out.put(header.as_bytes());
+                out.put(s.clone());
+                out.put_slice(b"\r\n");
+                out.into()
+            }
+            Frame::Array(a) => {
+                let len = a.len();
+                let header = Bytes::from(format!("*{}\r\n", len));
+                let mut out = BytesMut::new();
+                out.put(header);
+                for frame in a {
+                    out.put(frame.to_bytes());
+                }
+                out.into()
+            }
+            Frame::Null => Bytes::from("$-1\r\n"),
         }
     }
 }

@@ -9,7 +9,7 @@ async fn read_single_frame() {
     let mut conn = Connection::new(mock);
     let frame = conn.read_frame().await.unwrap().unwrap();
 
-    assert_eq!(frame, Frame::Simple("OK".to_string()));
+    assert_eq!(frame, Frame::SimpleString("OK".to_string()));
 }
 
 #[tokio::test]
@@ -24,7 +24,7 @@ async fn read_frame_across_chunks() {
     let mut conn = Connection::new(mock);
     let frame = conn.read_frame().await.unwrap().unwrap();
 
-    assert_eq!(frame, Frame::Bulk(Bytes::from("hello")));
+    assert_eq!(frame, Frame::BulkString(Bytes::from("hello")));
 }
 
 #[tokio::test]
@@ -40,8 +40,8 @@ async fn read_array_frame_chunked() {
     let frame = conn.read_frame().await.unwrap().unwrap();
 
     let expected = Frame::Array(vec![
-        Frame::Bulk(Bytes::from("GET")),
-        Frame::Bulk(Bytes::from("foo")),
+        Frame::BulkString(Bytes::from("GET")),
+        Frame::BulkString(Bytes::from("foo")),
     ]);
     assert_eq!(frame, expected);
 }
@@ -55,7 +55,7 @@ async fn read_multiple_frames_in_sequence() {
     let mut conn = Connection::new(mock);
 
     let first = conn.read_frame().await.unwrap().unwrap();
-    assert_eq!(first, Frame::Simple("OK".to_string()));
+    assert_eq!(first, Frame::SimpleString("OK".to_string()));
 
     let second = conn.read_frame().await.unwrap().unwrap();
     assert_eq!(second, Frame::Integer(42));
@@ -88,7 +88,7 @@ async fn write_simple_string() {
     let mock = tokio_test::io::Builder::new().write(b"+OK\r\n").build();
 
     let mut conn = Connection::new(mock);
-    conn.write_frame(&Frame::Simple("OK".to_string()))
+    conn.write_frame(&Frame::SimpleString("OK".to_string()))
         .await
         .unwrap();
 }
@@ -100,7 +100,7 @@ async fn write_bulk_string() {
         .build();
 
     let mut conn = Connection::new(mock);
-    conn.write_frame(&Frame::Bulk(Bytes::from("hello")))
+    conn.write_frame(&Frame::BulkString(Bytes::from("hello")))
         .await
         .unwrap();
 }
@@ -113,8 +113,8 @@ async fn write_array() {
 
     let mut conn = Connection::new(mock);
     let frame = Frame::Array(vec![
-        Frame::Bulk(Bytes::from("GET")),
-        Frame::Bulk(Bytes::from("foo")),
+        Frame::BulkString(Bytes::from("GET")),
+        Frame::BulkString(Bytes::from("foo")),
     ]);
     conn.write_frame(&frame).await.unwrap();
 }

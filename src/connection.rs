@@ -1,7 +1,7 @@
 use crate::{Frame, frame::ParseError};
 use bytes::{Buf, BytesMut};
 use std::io::Cursor;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 pub struct Connection<T> {
     stream: T,
@@ -50,5 +50,9 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Connection<T> {
         }
     }
 
-    pub async fn write_frame(&mut self, frame: &Frame) -> Result<(), ConnectionError> {}
+    pub async fn write_frame(&mut self, frame: &Frame) -> Result<(), ConnectionError> {
+        let bytes = frame.to_bytes();
+        self.stream.write_all(&bytes).await?;
+        Ok(())
+    }
 }
