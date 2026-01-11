@@ -29,7 +29,7 @@ pub enum ParseError {
     #[error("Invalid Null")]
     InvalidNull,
     #[error("Invalid UTF-8 Conversion")]
-    Utf8(#[from] FromUtf8Error),
+    InvalidUtf8(#[from] FromUtf8Error),
 }
 
 impl Frame {
