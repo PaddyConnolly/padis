@@ -12,6 +12,16 @@ A Redis Clone written in Rust to explore system design and multi-threading.
 - Unit and integration testing
 - CI with formatting, linting and testing
 
+## Benchmarks
+
+Performed with `redis-benchmark`
+
+- Throughput: ~72,000 RPS (GET) on AMD Ryzen 5.
+
+- Tail Latency: P99 of 0.77ms
+
+- Efficiency: Median response time (P50) of 0.39ms under a load of 50 concurrent clients.
+
 ## Usage
 
 Start the server:
